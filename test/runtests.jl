@@ -42,8 +42,8 @@ function runtests(exportingTool)
             end
         end
 
-        @testset "Model Description Parsing" begin
-            include("model_description.jl")
+        @testset "Plotting" begin
+            include("plots.jl")
         end
     end
 end
