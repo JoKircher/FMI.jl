@@ -303,7 +303,7 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
         inputValues = _inputFunction(nothing, nothing, t_start)
         inputs = Dict(inputValueReferences .=> inputValues)
     end
-
+    # TODO here drops the state and the x0 vector
     c, x0 = prepareSolveFMU(fmu, c, fmi2TypeModelExchange, instantiate, freeInstance, terminate, reset, setup, parameters, t_start, t_stop, nothing; x0=x0, inputs=inputs, handleEvents=FMI.handleEvents)
     fmusol = c.solution
 
@@ -322,6 +322,8 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
     c.fmu.hasStateEvents = (c.fmu.modelDescription.numberOfEventIndicators > 0)
     c.fmu.hasTimeEvents = (c.eventInfo.nextEventTimeDefined == fmi2True)
     
+    println("x0 is $x0")
+    x0 = [.1]
     setupODEProblem(c, x0, (t_start, t_stop); customFx=customFx)
 
     progressMeter = nothing
