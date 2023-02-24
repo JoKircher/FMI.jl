@@ -44,11 +44,14 @@ end
 # Returns the event indicators for an FMU.
 function condition(c::FMU2Component, out::AbstractArray{<:Real}, x, t, integrator, inputFunction, inputValues::AbstractArray{fmi2ValueReference}) 
 
+    
+    print("state is ")
+    println(c.state)
     @assert c.state == fmi2ComponentStateContinuousTimeMode "condition(...): Must be called in mode continuous time."
 
     t = undual(t)
     x = undual(x)
-
+    # TODO setcontinuousState doesnt work with a no state FMU
     fmi2SetContinuousStates(c, x)
     fmi2SetTime(c, t)
     if inputFunction !== nothing
@@ -161,7 +164,7 @@ function fx(c::FMU2Component,
     t::Real)
 
     _, dx = c(;dx=dx, x=x, t=t)
-
+    println("Evaluate fx $(c.state)")
     return dx
 end
 
@@ -173,7 +176,12 @@ end
 # sets up the ODEProblem for simulating a ME-FMU
 function setupODEProblem(c::FMU2Component, x0::AbstractArray{fmi2Real}, tspan::Union{Tuple{Float64, Float64}, Nothing}=nothing; p=[], customFx=nothing)
     if customFx === nothing
-        customFx = (dx, x, p, t) -> fx(c, dx, x, p, t)
+        if length(x0) == 0
+            x0 = [.1]
+            customFx = (dx, x, p, t) -> (fx(c, dx, Vector{Float64}(undef, 0), p, t) * (x / x))
+        else
+            customFx = (dx, x, p, t) -> fx(c, dx, x, p, t) 
+        end
     end
 
     p = []
@@ -323,8 +331,15 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
     c.fmu.hasTimeEvents = (c.eventInfo.nextEventTimeDefined == fmi2True)
     
     println("x0 is $x0")
-    x0 = [.1]
+    
     setupODEProblem(c, x0, (t_start, t_stop); customFx=customFx)
+    if length(x0) == 0
+        println("ODEProblem with hasArtificalState")
+        hasArtificalState = true
+        x0 = [.1]
+    else 
+        hasArtificalState = false
+    end
 
     progressMeter = nothing
     if showProgress 
@@ -342,8 +357,8 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
         push!(cbs, timeEventCb)
     end
 
-    if c.fmu.hasStateEvents && c.fmu.executionConfig.handleStateEvents
-
+    if (c.fmu.hasStateEvents && c.fmu.executionConfig.handleStateEvents) || hasArtificalState
+        println("add Vector callback")
         eventCb = VectorContinuousCallback((out, x, t, integrator) -> condition(c, out, x, t, integrator, _inputFunction, inputValueReferences),
                                            (integrator, idx) -> affectFMU!(c, integrator, idx, _inputFunction, inputValueReferences, fmusol),
                                            Int64(c.fmu.modelDescription.numberOfEventIndicators);
