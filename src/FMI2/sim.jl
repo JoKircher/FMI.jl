@@ -23,7 +23,7 @@ import ProgressMeter
 
 # Read next time event from fmu and provide it to the integrator 
 function time_choice(c::FMU2Component, integrator, tStart, tStop)
-
+    println("time choice should not be reached")
     #@info "TC"
 
     if c.eventInfo.nextEventTimeDefined == fmi2True
@@ -51,14 +51,20 @@ function condition(c::FMU2Component, out::AbstractArray{<:Real}, x, t, integrato
 
     t = undual(t)
     x = undual(x)
+    println("x is $x")
     # TODO setcontinuousState doesnt work with a no state FMU
-    fmi2SetContinuousStates(c, x)
+    if length(c.fmu.modelDescription.stateValueReferences) > 0
+        println("condition setStates should not be reached")
+        fmi2SetContinuousStates(c, x)
+    end
     fmi2SetTime(c, t)
     if inputFunction !== nothing
         fmi2SetReal(c, inputValues, inputFunction(c, x, t)) 
     end
-    fmi2GetEventIndicators!(c, out)
-
+    if length(c.fmu.modelDescription.stateValueReferences) > 0
+        println("condition getEventIndicators should not be reached")
+        fmi2GetEventIndicators!(c, out)
+    end
     return nothing
 end
 
@@ -69,7 +75,11 @@ function affectFMU!(c::FMU2Component, integrator, idx, inputFunction, inputValue
     @assert c.state == fmi2ComponentStateContinuousTimeMode "affectFMU!(...): Must be in continuous time mode!"
 
     # there are fx-evaluations before the event is handled, reset the FMU state to the current integrator step
-    fmi2SetContinuousStates(c, integrator.u; force=true)
+    # TODO check if there is no real state
+    if length(c.fmu.modelDescription.stateValueReferences) > 0
+        println("affectFMU setStates should not be reached")
+        fmi2SetContinuousStates(c, integrator.u; force=true)
+    end
     fmi2SetTime(c, integrator.t; force=true)
     if inputFunction !== nothing
         fmi2SetReal(c, inputValues, inputFunction(c, integrator.u, integrator.t))
@@ -96,6 +106,7 @@ function affectFMU!(c::FMU2Component, integrator, idx, inputFunction, inputValue
     end
 
     if c.eventInfo.nominalsOfContinuousStatesChanged == fmi2True
+        # TODO this might cause problems as well
         x_nom = fmi2GetNominalsOfContinuousStates(c)
     end
 
@@ -122,6 +133,8 @@ function stepCompleted(c::FMU2Component, x, t, integrator, inputFunction, inputV
         end
     end
 
+    # TODO this fmi call makes FMU fail
+    println("COmplete should not be called")
     (status, enterEventMode, terminateSimulation) = fmi2CompletedIntegratorStep(c, fmi2True)
     
     if terminateSimulation == fmi2True
@@ -144,8 +157,11 @@ function saveValues(c::FMU2Component, recordValues, x, t, integrator, inputFunct
 
     #x_old = fmi2GetContinuousStates(c)
     #t_old = c.t
-    
-    fmi2SetContinuousStates(c, x)
+    # check if x is not empty
+    if length(c.fmu.modelDescription.stateValueReferences) > 0
+        println("savevalues Set states should not be reached")
+        fmi2SetContinuousStates(c, x)
+    end
     fmi2SetTime(c, t) 
     if inputFunction != nothing
         fmi2SetReal(c, inputValues, inputFunction(c, x, t)) 
@@ -164,7 +180,6 @@ function fx(c::FMU2Component,
     t::Real)
 
     _, dx = c(;dx=dx, x=x, t=t)
-    println("Evaluate fx $(c.state)")
     return dx
 end
 
@@ -359,6 +374,7 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
 
     if (c.fmu.hasStateEvents && c.fmu.executionConfig.handleStateEvents) || hasArtificalState
         println("add Vector callback")
+        # TODO lenght of numberOfEventIndicators is zero
         eventCb = VectorContinuousCallback((out, x, t, integrator) -> condition(c, out, x, t, integrator, _inputFunction, inputValueReferences),
                                            (integrator, idx) -> affectFMU!(c, integrator, idx, _inputFunction, inputValueReferences, fmusol),
                                            Int64(c.fmu.modelDescription.numberOfEventIndicators);
@@ -370,6 +386,7 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
 
     # use step callback always if we have inputs or need event handling (or just want to see our simulation progress)
     if hasInputs || c.fmu.hasStateEvents || c.fmu.hasTimeEvents || showProgress
+        println("add FunctionCallingCB")
         stepCb = FunctionCallingCallback((x, t, integrator) -> stepCompleted(c, x, t, integrator, _inputFunction, inputValueReferences, progressMeter, t_start, t_stop, fmusol);
                                             func_everystep = true,
                                             func_start = true)
