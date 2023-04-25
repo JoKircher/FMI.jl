@@ -134,19 +134,21 @@ function stepCompleted(c::FMU2Component, x, t, integrator, inputFunction, inputV
         end
     end
 
-    # TODO this fmi call makes FMU fail
-    println("COmplete should not be called")
-    (status, enterEventMode, terminateSimulation) = fmi2CompletedIntegratorStep(c, fmi2True)
-    
-    if terminateSimulation == fmi2True
-        @error "stepCompleted(...): FMU requested termination!"
-    end
+    if length(c.fmu.modelDescription.stateValueReferences) > 0
+        # TODO this fmi call makes FMU fail
+        println("COmplete should not be called")
+        (status, enterEventMode, terminateSimulation) = fmi2CompletedIntegratorStep(c, fmi2True)
+        
+        if terminateSimulation == fmi2True
+            @error "stepCompleted(...): FMU requested termination!"
+        end
 
-    if enterEventMode == fmi2True
-        affectFMU!(c, integrator, -1, inputFunction, inputValues, solution)
-    else
-        if inputFunction != nothing
-            fmi2SetReal(c, inputValues, inputFunction(c, x, t)) 
+        if enterEventMode == fmi2True
+            affectFMU!(c, integrator, -1, inputFunction, inputValues, solution)
+        else
+            if inputFunction != nothing
+                fmi2SetReal(c, inputValues, inputFunction(c, x, t)) 
+            end
         end
     end
 end
@@ -179,18 +181,12 @@ function fx(c::FMU2Component,
     x::AbstractArray{<:Real}, 
     p::AbstractArray, 
     t::Real)
+    println("dx: $dx")
+    println("x: $x")
+    println("p: $p")
+    println("t: $t")
 
     _, dx = c(;dx=dx, x=x, t=t)
-    return dx
-end
-
-function fx(c::FMU2Component, 
-    x::AbstractArray{<:Real}, 
-    p::AbstractArray, 
-    t::Real)
-
-    _, dx = c(;x=x, t=t)
-
     return dx
 end
 
@@ -217,19 +213,24 @@ function setupODEProblem(c::FMU2Component, x0::AbstractArray{fmi2Real}, tspan::U
     if c.fmu.executionConfig.inPlace
         if customFx === nothing
             if length(x0) == 0
-            x0 = [.1]
-            customFx = (dx, x, p, t) -> (fx(c, dx, Vector{Float64}(undef, 0), p, t) * (x / x))
-        else
-            customFx = (dx, x, p, t) -> fx(c, dx, x, p, t) 
+                x0 = [.1]
+                customFx = (dx, x, p, t) -> (fx(c, dx, x, p, t) * (x[1] / x[1]))
+            else
+                customFx = (dx, x, p, t) -> fx(c, dx, x, p, t) 
+            end
         end
-    end
 
         ff = ODEFunction{true}(customFx, 
                                tgrad=nothing)
         c.problem = ODEProblem{true}(ff, x0, tspan, p)
     else 
         if customFx === nothing
-            customFx = (x, p, t) -> fx(c, x, p, t)
+            if length(x0) == 0
+                x0 = [.1]
+                customFx = (x, p, t) -> (fx(c, Vector{Float64}(undef, 0), p, t) * (x / x))
+            else
+                customFx = (x, p, t) -> fx(c, x, p, t) 
+            end
         end
 
         ff = ODEFunction{false}(customFx, 
@@ -386,7 +387,7 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
     if length(x0) == 0
         println("ODEProblem with hasArtificalState")
         hasArtificalState = true
-        x0 = [.1]
+        x0 = [.1, .2]
     else 
         hasArtificalState = false
     end

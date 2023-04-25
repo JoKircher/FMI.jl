@@ -1,6 +1,6 @@
 using FMI, FMIImport, FMICore
 
-myFMU = fmiLoad(string(pwd(), "/src/FMI2/Mwe.fmu"))
+myFMU = fmiLoad(string(pwd(), "/src/FMI2/Mwe_1.fmu"))
 fmiInfo(myFMU)
 
 fmiInstantiate!(myFMU)
@@ -22,3 +22,5 @@ myFMU.components[end].state
 # fmi2EnterEventMode(myFMU)
 # fmi2EnterContinuousTimeMode(myFMU)
 solution = fmiSimulate(myFMU, (0.0, 1.0); recordValues=["x", "y"])
+
+# myFMU(;x = )
