@@ -186,7 +186,7 @@ function fx(c::FMU2Component,
     println("p: $p")
     println("t: $t")
 
-    _, dx = c(;dx=dx, x=x, t=t)
+     _, dx = c(;dx=dx, x=x, t=t)
     return dx
 end
 
@@ -387,7 +387,7 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
     if length(x0) == 0
         println("ODEProblem with hasArtificalState")
         hasArtificalState = true
-        x0 = [.1, .2]
+        x0 = [.1]
     else 
         hasArtificalState = false
     end
@@ -408,16 +408,27 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
         push!(cbs, timeEventCb)
     end
 
+                # TODO lenght of numberOfEventIndicators is zero
     if (c.fmu.hasStateEvents && c.fmu.executionConfig.handleStateEvents) || hasArtificalState
         println("add Vector callback")
-        # TODO lenght of numberOfEventIndicators is zero
-        eventCb = VectorContinuousCallback((out, x, t, integrator) -> condition(c, out, x, t, integrator, _inputFunction, inputValueReferences),
-                                           (integrator, idx) -> affectFMU!(c, integrator, idx, _inputFunction, inputValueReferences, fmusol),
-                                           Int64(c.fmu.modelDescription.numberOfEventIndicators);
-                                           rootfind = RightRootFind,
-                                           save_positions=(false,false),
-                                           interp_points=fmu.executionConfig.rootSearchInterpolationPoints)
-        push!(cbs, eventCb)
+        if hasArtificalState
+            eventCb = VectorContinuousCallback((out, x, t, integrator) -> condition(c, out, x, t, integrator, _inputFunction, inputValueReferences),
+            (integrator, idx) -> affectFMU!(c, integrator, idx, _inputFunction, inputValueReferences, fmusol),
+            Int64(1);
+            rootfind = RightRootFind,
+            save_positions=(false,false),
+            interp_points=fmu.executionConfig.rootSearchInterpolationPoints)
+
+            push!(cbs, eventCb)
+        else
+            eventCb = VectorContinuousCallback((out, x, t, integrator) -> condition(c, out, x, t, integrator, _inputFunction, inputValueReferences),
+                                            (integrator, idx) -> affectFMU!(c, integrator, idx, _inputFunction, inputValueReferences, fmusol),
+                                            Int64(c.fmu.modelDescription.numberOfEventIndicators);
+                                            rootfind = RightRootFind,
+                                            save_positions=(false,false),
+                                            interp_points=fmu.executionConfig.rootSearchInterpolationPoints)
+            push!(cbs, eventCb)
+        end
     end
 
     # use step callback always if we have inputs or need event handling (or just want to see our simulation progress)
@@ -464,6 +475,7 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
     if saveat !== nothing
         solveKwargs[:saveat] = saveat
     end
+    print(c.problem)
 
     if isnothing(solver)
         fmusol.states = solve(c.problem; callback = CallbackSet(cbs...), dtmax=dtmax, solveKwargs..., kwargs...)

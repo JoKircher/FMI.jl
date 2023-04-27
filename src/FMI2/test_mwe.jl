@@ -2,7 +2,7 @@ using FMI, FMIImport, FMICore
 
 myFMU = fmiLoad(string(pwd(), "/src/FMI2/Mwe_1.fmu"))
 fmiInfo(myFMU)
-
+myFMU.type == FMIImport.fmi2TypeModelExchange
 fmiInstantiate!(myFMU)
 fmi2SetupExperiment(myFMU)
 fmi2EnterInitializationMode(myFMU)
