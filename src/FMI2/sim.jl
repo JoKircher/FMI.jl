@@ -186,7 +186,8 @@ function fx(c::FMU2Component,
     println("p: $p")
     println("t: $t")
 
-     _, dx = c(;dx=dx, x=x, t=t)
+    _, dx = c(;dx=dx, x=x, t=t)
+    println("dx is $dx")
     return dx
 end
 
@@ -214,7 +215,7 @@ function setupODEProblem(c::FMU2Component, x0::AbstractArray{fmi2Real}, tspan::U
         if customFx === nothing
             if length(x0) == 0
                 x0 = [.1]
-                customFx = (dx, x, p, t) -> (fx(c, dx, x, p, t) * (x[1] / x[1]))
+                customFx = (dx, x, p, t) -> (fx(c, dx, x, p, t) * (1 / 1))
             else
                 customFx = (dx, x, p, t) -> fx(c, dx, x, p, t) 
             end
@@ -475,7 +476,6 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
     if saveat !== nothing
         solveKwargs[:saveat] = saveat
     end
-    print(c.problem)
 
     if isnothing(solver)
         fmusol.states = solve(c.problem; callback = CallbackSet(cbs...), dtmax=dtmax, solveKwargs..., kwargs...)
