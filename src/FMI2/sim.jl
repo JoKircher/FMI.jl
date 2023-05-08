@@ -496,6 +496,10 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
 
     finishSolveFMU(fmu, c, freeInstance, terminate)
 
+    if length(c.fmu.modelDescription.stateValueReferences) == 0
+        fmusol.states.u = []
+    end
+
     return fmusol
 end
 
