@@ -7,7 +7,7 @@ fmiInstantiate!(myFMU)
 fmi2SetupExperiment(myFMU)
 fmi2EnterInitializationMode(myFMU)
 fmi2ExitInitializationMode(myFMU)
-myFMU.components[end].state
+c = myFMU.components[end]
 fmi2EnterContinuousTimeMode(myFMU)
 fmi2EnterEventMode(myFMU)
 fmi2NewDiscreteStates!(myFMU.components[end], myFMU.components[end].eventInfo)
@@ -22,6 +22,11 @@ fmi2ComponentStateError == (myFMU.components[end].state)
 # fmiIsModelExchange(myFMU)
 # fmi2EnterEventMode(myFMU)
 # fmi2EnterContinuousTimeMode(myFMU)
+dx = c(;dx=[0.0], x=[0.1], t=0.0)
 solution = fmiSimulate(myFMU, (0.0, 1.0); recordValues=["x", "y"])
 
-# myFMU(;x = )
+solution.values.saveval
+Plots.plot(solution.values.t, collect(x[1] for x in solution.values.saveval))
+Plots.plot(solution.values.t, collect(x[2] for x in solution.values.saveval))
+
+solution.states

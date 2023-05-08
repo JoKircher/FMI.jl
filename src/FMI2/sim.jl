@@ -24,7 +24,7 @@ import ThreadPools
 
 # Read next time event from fmu and provide it to the integrator 
 function time_choice(c::FMU2Component, integrator, tStart, tStop)
-    println("time choice should not be reached")
+    #println("time choice should not be reached")
     #@info "TC"
 
     if c.eventInfo.nextEventTimeDefined == fmi2True
@@ -46,16 +46,16 @@ end
 function condition(c::FMU2Component, out::AbstractArray{<:Real}, x, t, integrator, inputFunction, inputValues::AbstractArray{fmi2ValueReference}) 
 
     
-    print("state is ")
-    println(c.state)
+    #print("state is ")
+    #println(c.state)
     @assert c.state == fmi2ComponentStateContinuousTimeMode "condition(...): Must be called in mode continuous time."
 
     t = undual(t)
     x = undual(x)
-    println("x is $x")
+    #println("x is $x")
     # TODO setcontinuousState doesnt work with a no state FMU
     if length(c.fmu.modelDescription.stateValueReferences) > 0
-        println("condition setStates should not be reached")
+        #println("condition setStates should not be reached")
         fmi2SetContinuousStates(c, x)
     end
     fmi2SetTime(c, t)
@@ -63,7 +63,7 @@ function condition(c::FMU2Component, out::AbstractArray{<:Real}, x, t, integrato
         fmi2SetReal(c, inputValues, inputFunction(c, x, t)) 
     end
     if length(c.fmu.modelDescription.stateValueReferences) > 0
-        println("condition getEventIndicators should not be reached")
+        #println("condition getEventIndicators should not be reached")
         fmi2GetEventIndicators!(c, out)
     end
     return nothing
@@ -78,7 +78,7 @@ function affectFMU!(c::FMU2Component, integrator, idx, inputFunction, inputValue
     # there are fx-evaluations before the event is handled, reset the FMU state to the current integrator step
     # TODO check if there is no real state
     if length(c.fmu.modelDescription.stateValueReferences) > 0
-        println("affectFMU setStates should not be reached")
+        #println("affectFMU setStates should not be reached")
         fmi2SetContinuousStates(c, integrator.u; force=true)
     end
     fmi2SetTime(c, integrator.t; force=true)
@@ -136,7 +136,7 @@ function stepCompleted(c::FMU2Component, x, t, integrator, inputFunction, inputV
 
     if length(c.fmu.modelDescription.stateValueReferences) > 0
         # TODO this fmi call makes FMU fail
-        println("COmplete should not be called")
+        #println("COmplete should not be called")
         (status, enterEventMode, terminateSimulation) = fmi2CompletedIntegratorStep(c, fmi2True)
         
         if terminateSimulation == fmi2True
@@ -162,7 +162,7 @@ function saveValues(c::FMU2Component, recordValues, x, t, integrator, inputFunct
     #t_old = c.t
     # check if x is not empty
     if length(c.fmu.modelDescription.stateValueReferences) > 0
-        println("savevalues Set states should not be reached")
+        #println("savevalues Set states should not be reached")
         fmi2SetContinuousStates(c, x)
     end
     fmi2SetTime(c, t) 
@@ -181,13 +181,13 @@ function fx(c::FMU2Component,
     x::AbstractArray{<:Real}, 
     p::AbstractArray, 
     t::Real)
-    println("dx: $dx")
-    println("x: $x")
-    println("p: $p")
-    println("t: $t")
+    #println("dx: $dx")
+    #println("x: $x")
+    #println("p: $p")
+    #println("t: $t")
 
-    _, dx = c(;dx=dx, x=x, t=t)
-    println("dx is $dx")
+    dx = c(;dx=dx, x=x, t=t)
+    #println("dx is $dx")
     return dx
 end
 
@@ -382,11 +382,11 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
     c.fmu.hasStateEvents = (c.fmu.modelDescription.numberOfEventIndicators > 0)
     c.fmu.hasTimeEvents = (c.eventInfo.nextEventTimeDefined == fmi2True)
     
-    println("x0 is $x0")
+    #println("x0 is $x0")
     
     setupODEProblem(c, x0, (t_start, t_stop); customFx=customFx)
     if length(x0) == 0
-        println("ODEProblem with hasArtificalState")
+        #println("ODEProblem with hasArtificalState")
         hasArtificalState = true
         x0 = [.1]
     else 
@@ -411,7 +411,7 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
 
                 # TODO lenght of numberOfEventIndicators is zero
     if (c.fmu.hasStateEvents && c.fmu.executionConfig.handleStateEvents) || hasArtificalState
-        println("add Vector callback")
+        #println("add Vector callback")
         if hasArtificalState
             eventCb = VectorContinuousCallback((out, x, t, integrator) -> condition(c, out, x, t, integrator, _inputFunction, inputValueReferences),
             (integrator, idx) -> affectFMU!(c, integrator, idx, _inputFunction, inputValueReferences, fmusol),
@@ -434,7 +434,7 @@ function fmi2SimulateME(fmu::FMU2, c::Union{FMU2Component, Nothing}=nothing, tsp
 
     # use step callback always if we have inputs or need event handling (or just want to see our simulation progress)
     if hasInputs || c.fmu.hasStateEvents || c.fmu.hasTimeEvents || showProgress
-        println("add FunctionCallingCB")
+        #println("add FunctionCallingCB")
         stepCb = FunctionCallingCallback((x, t, integrator) -> stepCompleted(c, x, t, integrator, _inputFunction, inputValueReferences, progressMeter, t_start, t_stop, fmusol);
                                             func_everystep = true,
                                             func_start = true)
